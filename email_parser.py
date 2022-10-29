@@ -49,7 +49,7 @@ class EmailParserHandler:
         field_names: List[str], file_name: str, item_data: Iterable[Mapping[Any, Any]]
     ):
         dict_writer = csv.DictWriter(
-            open(file_name, "w"),
+            open(file_name, "w", newline=""),
             fieldnames=field_names,
             doublequote=True,
             delimiter=",",
