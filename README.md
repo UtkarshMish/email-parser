@@ -1,7 +1,7 @@
 # EMAIL PARSER
 
-Email parser will read a .eml file in the path mentioned and fetch any query present inside those emails.
-All the result will be stored inside result folder mentioned in the script.
+Key Email parser will read a .eml file in the path mentioned and fetch any query present inside those emails.
+All the Key will be stored inside result folder as a csv mentioned in the script.
 
 
 ### variables to change

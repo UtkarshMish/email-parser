@@ -1,8 +1,11 @@
+import csv
 import os
 import re
+from collections import defaultdict
 from email import policy
 from email.parser import BytesParser
 from glob import glob
+from typing import Any, Dict, Iterable, List, Mapping
 
 
 class EmailParserHandler:
@@ -20,37 +23,79 @@ class EmailParserHandler:
         return text
 
     @staticmethod
-    def search_query(mail: str, query: str):
+    def fetch_fields(mail: str, field: List[str]) -> Dict[str, str]:
+        result: Dict[str, str] = defaultdict(str)
+        for key in field:
+            try:
 
-        result = re.findall(query, mail, re.I | re.M)
-        count = len(result)
+                result[key] = ";".join(
+                    map(
+                        lambda matched: (matched.group(1).strip("\n").strip()),
+                        re.finditer(
+                            rf"""{key}:((.*?)*\s*(?:"([^"]*)"|(\S+)))""",
+                            mail,
+                            re.I | re.M,
+                        ),
+                    )
+                )
 
-        return count
+            except StopIteration:
+                pass
+
+        return dict(result)
+
+    @staticmethod
+    def write_to_file(
+        field_names: List[str], file_name: str, item_data: Iterable[Mapping[Any, Any]]
+    ):
+        dict_writer = csv.DictWriter(
+            open(file_name, "w"),
+            fieldnames=field_names,
+            doublequote=True,
+            delimiter=",",
+            strict=True,
+        )
+        dict_writer.writeheader()
+        dict_writer.writerows(item_data)
 
 
 if __name__ == "__main__":
     EMAIL_PATH: str = "."  # directory to search for email
-    CONTENT_QUERY: str = ".com"  # enter pattern in place of test
-    RESULT_FILE: str = "result/result.txt"  # store data in file
+    CONTENT_QUERY: List[str] = [
+        "hostname",
+        "value",
+        "fileWriteEvent/filePath",
+        "fileWriteEvent/fullPath",
+        "fileWriteEvent/fileName",
+        "fileWriteEvent/md5",
+        "fileWriteEvent/processPath",
+        "fileWriteEvent/userName",
+        "fileWriteEvent/parentProcessPath",
+    ]  # enter pattern in place of test
+
+    RESULT_FILE: str = "result/result.csv"  # store data in file
+
     email_files = EmailParserHandler.get_email_files(EMAIL_PATH)
 
-    get_content_list = list(
-        filter(
-            lambda mail: EmailParserHandler.search_query(mail, CONTENT_QUERY) != 0,
-            [EmailParserHandler.read_email(file_name) for file_name in email_files],
-        )
-    )
-    size = len(get_content_list)
+    CONTENT_QUERY.append("file_name")
+
+    field_items = [
+        {
+            **EmailParserHandler.fetch_fields(
+                EmailParserHandler.read_email(file_name), CONTENT_QUERY
+            ),
+            "file_name": file_name,
+        }
+        for file_name in email_files
+    ]
+    size = len(field_items)
+
     dir_name = os.path.dirname(RESULT_FILE)
     if dir_name == "":
         dir_name = "."
 
     file_name = os.path.basename(RESULT_FILE)
-    os.makedirs(dir_name, exist_ok=True)
-    for index in range(1, size + 1):
-        file_name = f"{dir_name}/{index}_{file_name}"
-        with open(file_name, "w") as fp:
-            fp.write(get_content_list[index - 1])
-            fp.close()
 
-    print("INFO: ", f"files written: {size}")
+    os.makedirs(dir_name, exist_ok=True)
+
+    EmailParserHandler.write_to_file(CONTENT_QUERY, RESULT_FILE, field_items)
