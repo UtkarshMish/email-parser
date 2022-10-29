@@ -5,20 +5,31 @@ from collections import defaultdict
 from email import policy
 from email.parser import BytesParser
 from glob import glob
-from typing import Any, Dict, Iterable, List, Mapping
+from typing import Any, Dict, Iterable, List, Literal, Mapping
+
+try:
+    import extract_msg
+except ImportError:
+    extract_msg = None
+
+SupportedEmailExtension = Literal["eml", "msg"]
 
 
 class EmailParserHandler:
     @staticmethod
-    def get_email_files(path: str):
-        return glob(f"{path}/*.eml", recursive=True)
+    def get_email_files(path: str, extension: SupportedEmailExtension = "eml"):
+        return glob(f"{path}/*.{extension.lower()}", recursive=True)
 
     @staticmethod
     def read_email(file_name: str):
         text = str()
+        extension = file_name.split(".").pop()
         with open(file_name, "rb") as fp:
-            msg = BytesParser(policy=policy.default).parse(fp)
-            text = msg.as_string()
+            if extension == "eml":
+                msg = BytesParser(policy=policy.default).parse(fp)
+                text = msg.as_string()
+            elif extension == "msg" and extract_msg:
+                text = extract_msg.message.Message(file_name).body or str()
 
         return text
 
@@ -61,6 +72,7 @@ class EmailParserHandler:
 
 if __name__ == "__main__":
     EMAIL_PATH: str = "."  # directory to search for email
+    EXTENSION_TO_LOOK_FOR: SupportedEmailExtension = "eml"
     CONTENT_QUERY: List[str] = [
         "hostname",
         "value",
@@ -75,7 +87,7 @@ if __name__ == "__main__":
 
     RESULT_FILE: str = "result/result.csv"  # store data in file
 
-    email_files = EmailParserHandler.get_email_files(EMAIL_PATH)
+    email_files = EmailParserHandler.get_email_files(EMAIL_PATH, EXTENSION_TO_LOOK_FOR)
 
     CONTENT_QUERY.append("file_name")
 
@@ -99,3 +111,11 @@ if __name__ == "__main__":
     os.makedirs(dir_name, exist_ok=True)
 
     EmailParserHandler.write_to_file(CONTENT_QUERY, RESULT_FILE, field_items)
+
+    print(
+        "SUMMARY:",
+        f"FILE READ = {len(email_files)}",
+        f"EMAILS READ = {len(field_items)}",
+        f"Result file = {RESULT_FILE}",
+        sep="\n",
+    )
