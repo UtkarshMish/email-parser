@@ -43,9 +43,9 @@ class EmailParserHandler:
                     map(
                         lambda matched: (matched.group(1).strip("\n").strip()),
                         re.finditer(
-                            rf"""{key}:((.*?)*\s*(?:"([^"]*)"|(\S+)))""",
+                            rf'"{key}":((.*?)*\s*(?:"([^"]*)"|(\S+)))',
                             mail,
-                            re.I | re.M,
+                            re.I | re.M | re.__builtins__,
                         ),
                     )
                 )
